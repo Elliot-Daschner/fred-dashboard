@@ -7,26 +7,60 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; color: #333; }
-        header { background: #1a2b4a; color: white; padding: 20px 40px; }
-        header h1 { font-size: 1.6rem; }
-        header p { font-size: 0.85rem; opacity: 0.7; margin-top: 4px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 32px 40px; }
-        .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-        .card h2 { font-size: 1rem; color: #555; margin-bottom: 16px; }
-        .stats { display: flex; gap: 24px; margin-bottom: 16px; }
-        .stat-item { display: flex; flex-direction: column; }
-        .stat-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
-        .stat-value { font-size: 1.4rem; font-weight: 600; color: #1a2b4a; }
-        .stat-change { font-size: 0.85rem; font-weight: 500; }
+        body { font-family: 'Segoe UI', sans-serif; background: #eef1f7; color: #333; }
+        header {
+            background: linear-gradient(135deg, #1a2b4a, #2d4a7a);
+            color: white;
+            padding: 24px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
+        header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.3px; }
+        header p { font-size: 0.8rem; opacity: 0.65; margin-top: 4px; }
+        #last-updated { font-size: 0.78rem; opacity: 0.6; text-align: right; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            padding: 32px 40px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+        .stats { display: flex; gap: 32px; margin-bottom: 20px; }
+        .stat-item { display: flex; flex-direction: column; gap: 2px; }
+        .stat-label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: #1a2b4a; line-height: 1; }
+        .stat-change { font-size: 0.85rem; font-weight: 600; margin-top: 2px; }
         .up { color: #2a9d8f; }
         .down { color: #e63946; }
     </style>
 </head>
 <body>
     <header>
-        <h1>FRED Economic Dashboard</h1>
-        <p>Data sourced from the Federal Reserve Bank of St. Louis</p>
+        <div>
+            <h1>FRED Dashboard</h1>
+            <p>Data sourced from the Federal Reserve Bank of St. Louis</p>
+        </div>
+        <div id="last-updated"></div>
     </header>
     <div class="grid">
         <div class="card">
@@ -107,6 +141,7 @@ fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
 fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a');
 fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
 fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
+document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     </script>
 </body>
 </html>
