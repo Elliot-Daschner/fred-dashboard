@@ -14,6 +14,13 @@
         .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 32px 40px; }
         .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
         .card h2 { font-size: 1rem; color: #555; margin-bottom: 16px; }
+        .stats { display: flex; gap: 24px; margin-bottom: 16px; }
+        .stat-item { display: flex; flex-direction: column; }
+        .stat-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
+        .stat-value { font-size: 1.4rem; font-weight: 600; color: #1a2b4a; }
+        .stat-change { font-size: 0.85rem; font-weight: 500; }
+        .up { color: #2a9d8f; }
+        .down { color: #e63946; }
     </style>
 </head>
 <body>
@@ -24,42 +31,64 @@
     <div class="grid">
         <div class="card">
             <h2>Unemployment Rate (%)</h2>
+            <div class="stats" id="unemploymentStats"></div>
             <canvas id="unemploymentChart"></canvas>
         </div>
         <div class="card">
             <h2>CPI Inflation Index</h2>
+            <div class="stats" id="inflationStats"></div>
             <canvas id="inflationChart"></canvas>
         </div>
         <div class="card">
             <h2>GDP (Billions USD)</h2>
+            <div class="stats" id="gdpStats"></div>
             <canvas id="gdpChart"></canvas>
         </div>
     </div>
     <script>
-        async function fetchAndRender(endpoint, canvasId, label, color) {
-            const res = await fetch(endpoint);
-            const data = await res.json();
-            const reversed = data.reverse();
-            const labels = reversed.map(d => d.date);
-            const values = reversed.map(d => parseFloat(d.value));
+        async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
+    const res = await fetch(endpoint);
+    const data = await res.json();
+    const reversed = data.reverse();
+    const labels = reversed.map(d => d.date);
+    const values = reversed.map(d => parseFloat(d.value));
 
-            new Chart(document.getElementById(canvasId), {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{ label, data: values, borderColor: color, tension: 0.3, pointRadius: 2, fill: false }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { x: { ticks: { maxTicksLimit: 6 } } }
-                }
-            });
+    // Summary stats
+    const current = values[values.length - 1];
+    const previous = values[values.length - 2];
+    const change = (current - previous).toFixed(2);
+    const isUp = change >= 0;
+    const statsEl = document.getElementById(statsId);
+    statsEl.innerHTML = `
+        <div class="stat-item">
+            <span class="stat-label">Current</span>
+            <span class="stat-value">${current.toFixed(2)}</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Change</span>
+            <span class="stat-change ${isUp ? 'up' : 'down'}">
+                ${isUp ? '▲' : '▼'} ${Math.abs(change)}
+            </span>
+        </div>
+    `;
+
+    new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{ label, data: values, borderColor: color, tension: 0.3, pointRadius: 2, fill: false }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { x: { ticks: { maxTicksLimit: 6 } } }
         }
+    });
+}
 
-        fetchAndRender('/api/unemployment', 'unemploymentChart', 'Unemployment Rate', '#e63946');
-        fetchAndRender('/api/inflation', 'inflationChart', 'CPI', '#457b9d');
-        fetchAndRender('/api/gdp', 'gdpChart', 'GDP', '#2a9d8f');
+fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
+fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
+fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
     </script>
 </body>
 </html>
