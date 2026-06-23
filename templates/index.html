@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FRED Economic Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #eef1f7; color: #333; }
@@ -158,101 +159,120 @@
         </div>
     </div>
     <script>
-        async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
-            const res = await fetch(endpoint);
-            const rawData = await res.json();
-            const reversed = rawData.filter(d => d.value !== '.').reverse();
-    
-            const card = document.getElementById(canvasId).closest('.card');
-            const btnContainer = card.querySelector('.filter-buttons');
-            let activeRange = 'All';
-            let chartInstance = null;
-    
-            function filterData(range) {
-                const now = new Date();
-                const cutoff = {
-                    '1M': new Date(now.getFullYear(), now.getMonth() - 1),
-                    '6M': new Date(now.getFullYear(), now.getMonth() - 6),
-                    '1Y': new Date(now.getFullYear() - 1, now.getMonth()),
-                    '5Y': new Date(now.getFullYear() - 5, now.getMonth()),
-                    '10Y': new Date(now.getFullYear() - 10, now.getMonth()),
-                    'All': new Date(0)
-                }[range];
-    
-                return reversed.filter(d => new Date(d.date) >= cutoff);
-            }
-    
-            function renderChart(range) {
-                const filtered = filterData(range);
-                const labels = filtered.map(d => d.date);
-                const values = filtered.map(d => parseFloat(d.value));
-    
-                if (chartInstance) chartInstance.destroy();
-    
-                chartInstance = new Chart(document.getElementById(canvasId), {
-                    type: 'line',
-                    data: {
-                        labels,
-                        datasets: [{
-                            label,
-                            data: values,
-                            borderColor: color,
-                            tension: 0.3,
-                            pointRadius: 2,
-                            fill: false
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { ticks: { maxTicksLimit: 6 } },
-                            y: { grid: { color: 'rgba(0,0,0,0.04)' } }
+        async function init() {
+            const recessionData = await (await fetch('/api/recessions')).json();
+
+            async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
+                const res = await fetch(endpoint);
+                const rawData = await res.json();
+                const reversed = rawData.filter(d => d.value !== '.').reverse();
+        
+                const card = document.getElementById(canvasId).closest('.card');
+                const btnContainer = card.querySelector('.filter-buttons');
+                let activeRange = 'All';
+                let chartInstance = null;
+        
+                function filterData(range) {
+                    const now = new Date();
+                    const cutoff = {
+                        '1M': new Date(now.getFullYear(), now.getMonth() - 1),
+                        '6M': new Date(now.getFullYear(), now.getMonth() - 6),
+                        '1Y': new Date(now.getFullYear() - 1, now.getMonth()),
+                        '5Y': new Date(now.getFullYear() - 5, now.getMonth()),
+                        '10Y': new Date(now.getFullYear() - 10, now.getMonth()),
+                        'All': new Date(0)
+                    }[range];
+        
+                    return reversed.filter(d => new Date(d.date) >= cutoff);
+                }
+        
+                function renderChart(range) {
+                    const filtered = filterData(range);
+                    const labels = filtered.map(d => d.date);
+                    const values = filtered.map(d => parseFloat(d.value));
+        
+                    if (chartInstance) chartInstance.destroy();
+        
+                    chartInstance = new Chart(document.getElementById(canvasId), {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label,
+                                data: values,
+                                borderColor: color,
+                                tension: 0.3,
+                                pointRadius: 2,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: { display: false },
+                                annotation: {
+                                    annotations: recessionData
+                                        .filter(r => new Date(r.start) >= (filterData(range)[0] ? new Date(filterData(range)[0].date) : new Date(0)))
+                                        .map((r, i) => ({
+                                            type: 'box',
+                                            xMin: r.start,
+                                            xMax: r.end,
+                                            backgroundColor: 'rgba(200, 200, 200, 0.25)',
+                                            borderWidth: 0,
+                                            label: { display: false }
+                                        }))
+                                }
+                            },
+                            scales: {
+                                x: { ticks: { maxTicksLimit: 6 } },
+                                y: { grid: { color: 'rgba(0,0,0,0.04)' } }
+                            }
                         }
-                    }
+                    });
+                }
+        
+                // Summary stats from full dataset
+                const current = parseFloat(reversed[reversed.length - 1].value);
+                const previous = parseFloat(reversed[reversed.length - 2].value);
+                const change = (current - previous).toFixed(2);
+                const isUp = change >= 0;
+                document.getElementById(statsId).innerHTML = `
+                    <div class="stat-item">
+                        <span class="stat-label">Current</span>
+                        <span class="stat-value">${current.toFixed(2)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Change</span>
+                        <span class="stat-change ${isUp ? 'up' : 'down'}">
+                            ${isUp ? '▲' : '▼'} ${Math.abs(change)}
+                        </span>
+                    </div>
+                `;
+        
+                // Filter button logic
+                btnContainer.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        btnContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        renderChart(btn.dataset.range);
+                    });
                 });
+        
+                // Set All as default active
+                btnContainer.querySelector('[data-range="All"]').classList.add('active');
+                renderChart('All');
             }
-    
-            // Summary stats from full dataset
-            const current = parseFloat(reversed[reversed.length - 1].value);
-            const previous = parseFloat(reversed[reversed.length - 2].value);
-            const change = (current - previous).toFixed(2);
-            const isUp = change >= 0;
-            document.getElementById(statsId).innerHTML = `
-                <div class="stat-item">
-                    <span class="stat-label">Current</span>
-                    <span class="stat-value">${current.toFixed(2)}</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Change</span>
-                    <span class="stat-change ${isUp ? 'up' : 'down'}">
-                        ${isUp ? '▲' : '▼'} ${Math.abs(change)}
-                    </span>
-                </div>
-            `;
-    
-            // Filter button logic
-            btnContainer.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    btnContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    renderChart(btn.dataset.range);
-                });
-            });
-    
-            // Set All as default active
-            btnContainer.querySelector('[data-range="All"]').classList.add('active');
-            renderChart('All');
+        
+            fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
+            fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
+            fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
+            fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a');
+            fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
+            fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
+        
+            document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         }
-    
-        fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
-        fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
-        fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
-        fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a');
-        fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
-        fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
-    
-        document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        init();
     </script>
 </body>
 </html>
