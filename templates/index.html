@@ -163,6 +163,59 @@
                 flex-wrap: wrap;
             }
         }
+
+        .correlation-section {
+            padding: 0 40px 40px 40px;
+        }
+        .correlation-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        }
+        .correlation-card h2 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        .correlation-card .card-description {
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+        .heatmap {
+            display: grid;
+            grid-template-columns: 120px repeat(6, 1fr);
+            gap: 3px;
+            font-size: 0.75rem;
+        }
+        .heatmap-cell {
+            padding: 10px 4px;
+            text-align: center;
+            border-radius: 6px;
+            font-weight: 600;
+            color: white;
+        }
+        .heatmap-label {
+            padding: 10px 4px;
+            text-align: right;
+            font-size: 0.75rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            font-weight: 500;
+        }
+        .heatmap-header {
+            padding: 10px 4px;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #999;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
@@ -272,6 +325,13 @@
                 <button class="filter-btn" data-range="All">All</button>
             </div>
             <canvas id="sentimentChart"></canvas>
+        </div>
+    </div>
+    <div class="correlation-section">
+        <div class="correlation-card">
+            <h2>Indicator Correlation Matrix</h2>
+            <p class="card-description">Pearson correlation between each pair of indicators. Green = positive correlation, Red = negative correlation.</p>
+            <div class="heatmap" id="heatmap"></div>
         </div>
     </div>
     <script>
@@ -441,6 +501,66 @@
             fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
             fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
         
+            // Correlation heatmap
+            const allData = await (await fetch('/api/all')).json();
+            const keys = ['unemployment', 'inflation', 'gdp', 'ffr', 'treasury', 'sentiment'];
+            const labels_corr = ['Unemp.', 'CPI', 'GDP', 'FFR', '10-Y', 'Sentiment'];
+
+            // Align all series by date
+            const dateSets = keys.map(k => new Map(allData[k].filter(d => d.value !== '.').map(d => [d.date, parseFloat(d.value)])));
+            // Get all dates from monthly series (unemployment, inflation, ffr, sentiment)
+            // and find nearest value for quarterly (gdp) and daily (treasury)
+            const allDates = [...dateSets[0].keys()].sort();
+
+            function getNearestValue(ds, date) {
+                if (ds.has(date)) return ds.get(date);
+                const dates = [...ds.keys()].sort();
+                const nearest = dates.reduce((prev, curr) => 
+                    Math.abs(new Date(curr) - new Date(date)) < Math.abs(new Date(prev) - new Date(date)) ? curr : prev
+                );
+                return ds.get(nearest);
+            }
+
+            const commonDates = allDates;
+            const vectors = keys.map((k, i) => commonDates.map(d => getNearestValue(dateSets[i], d)));
+
+            function pearson(a, b) {
+                const n = a.length;
+                const meanA = a.reduce((s, v) => s + v, 0) / n;
+                const meanB = b.reduce((s, v) => s + v, 0) / n;
+                const num = a.reduce((s, v, i) => s + (v - meanA) * (b[i] - meanB), 0);
+                const den = Math.sqrt(a.reduce((s, v) => s + (v - meanA) ** 2, 0) * b.reduce((s, v) => s + (v - meanB) ** 2, 0));
+                return den === 0 ? 0 : num / den;
+            }
+
+            function corrColor(r) {
+                if (r >= 0) {
+                    const g = Math.round(157 + (98 - 157) * r);
+                    const gb = Math.round(141 + (130 - 141) * r);
+                    return `rgb(42, ${g}, ${gb})`;
+                } else {
+                    const intensity = Math.abs(r);
+                    const g = Math.round(100 - 100 * intensity);
+                    const b = Math.round(70 - 70 * intensity);
+                    return `rgb(${Math.round(150 + 80 * intensity)}, ${g}, ${b})`;
+                }
+            }
+
+            const heatmap = document.getElementById('heatmap');
+
+            // Header row
+            heatmap.innerHTML = '<div></div>' + labels_corr.map(l => `<div class="heatmap-header">${l}</div>`).join('');
+
+            // Data rows
+            keys.forEach((key, i) => {
+                heatmap.innerHTML += `<div class="heatmap-label">${labels_corr[i]}</div>`;
+                keys.forEach((_, j) => {
+                    const r = pearson(vectors[i], vectors[j]);
+                    const bg = corrColor(r);
+                    heatmap.innerHTML += `<div class="heatmap-cell" style="background:${bg}">${r.toFixed(2)}</div>`;
+                });
+            });
+
             document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         }
         init();

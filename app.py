@@ -63,5 +63,17 @@ def recessions():
         {"start": "2020-02-01", "end": "2020-04-01"}
     ])
 
+@app.route("/api/all")
+def all_series():
+    series = {
+        "unemployment": get_fred_data("UNRATE"),
+        "inflation": get_fred_data("CPIAUCSL"),
+        "gdp": get_fred_data("GDP"),
+        "ffr": get_fred_data("FEDFUNDS"),
+        "treasury": get_fred_data("DGS10"),
+        "sentiment": get_fred_data("UMCSENT")
+    }
+    return jsonify(series)
+
 if __name__ == "__main__":
     app.run(debug=True)
