@@ -216,6 +216,28 @@
             font-weight: 600;
             text-transform: uppercase;
         }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 4px;
+        }
+        .export-btn {
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            color: #999;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .export-btn:hover {
+            border-color: #1a2b4a;
+            color: #1a2b4a;
+        }
     </style>
 </head>
 <body>
@@ -237,8 +259,13 @@
     </div>
     <div class="grid">
         <div class="card">
-            <h2>Unemployment Rate (%)</h2>
-            <p class="card-description">Percentage of the labor force actively seeking but unable to find work.</p>
+            <div class="card-header">
+                <div>
+                    <h2>Unemployment Rate (%)</h2>
+                    <p class="card-description">Percentage of the labor force actively seeking but unable to find work.</p>
+                </div>
+                <button class="export-btn" id="unemploymentExport">↓ CSV</button>
+            </div>
             <div class="skeleton skeleton-stats" id="unemploymentSkeleton"></div>
             <div class="stats" id="unemploymentStats"></div>
             <div class="filter-buttons">
@@ -252,8 +279,13 @@
             <canvas id="unemploymentChart"></canvas>
         </div>
         <div class="card">
-            <h2>CPI Inflation Index</h2>
-            <p class="card-description">Measures changes in the price level of a basket of consumer goods and services.</p>
+            <div class="card-header">
+                <div>
+                    <h2>CPI Inflation Index</h2>
+                    <p class="card-description">Measures changes in the price level of a basket of consumer goods and services.</p>
+                </div>
+                <button class="export-btn" id="inflationExport">↓ CSV</button>
+            </div>
             <div class="skeleton skeleton-stats" id="inflationSkeleton"></div>
             <div class="stats" id="inflationStats"></div>
             <div class="filter-buttons">
@@ -267,8 +299,13 @@
             <canvas id="inflationChart"></canvas>
         </div>
         <div class="card">
-            <h2>GDP (Billions USD)</h2>
-            <p class="card-description">Total monetary value of all goods and services produced in the U.S. economy.</p>
+            <div class="card-header">
+                <div>
+                    <h2>GDP (Billions USD)</h2>
+                    <p class="card-description">Total monetary value of all goods and services produced in the U.S. economy.</p> 
+                </div>
+                <button class="export-btn" id="gdpExport">↓ CSV</button>
+            </div>
             <div class="skeleton skeleton-stats" id="gdpSkeleton"></div>
             <div class="stats" id="gdpStats"></div>
             <div class="filter-buttons">
@@ -282,8 +319,13 @@
             <canvas id="gdpChart"></canvas>
         </div>
         <div class="card">
-            <h2>Federal Funds Rate (%)</h2>
-            <p class="card-description">The interest rate at which banks lend reserve balances to each other overnight.</p>
+            <div class="card-header">
+                <div>
+                    <h2>Federal Funds Rate (%)</h2>
+                    <p class="card-description">The interest rate at which banks lend reserve balances to each other overnight.</p>
+                </div>
+                <button class="export-btn" id="ffrExport">↓ CSV</button>
+            </div>
             <div class="skeleton skeleton-stats" id="ffrSkeleton"></div>
             <div class="stats" id="ffrStats"></div>
             <div class="filter-buttons">
@@ -297,8 +339,13 @@
             <canvas id="ffrChart"></canvas>
         </div>
         <div class="card">
-            <h2>10-Year Treasury Yield (%)</h2>
-            <p class="card-description">Return on U.S. government debt maturing in 10 years, a key benchmark for borrowing costs.</p>
+            <div class="card-header">
+                <div>
+                    <h2>10-Year Treasury Yield (%)</h2>
+                    <p class="card-description">Return on U.S. government debt maturing in 10 years, a key benchmark for borrowing costs.</p>
+                </div>
+                <button class="export-btn" id="treasuryExport">↓ CSV</button>
+            </div>
             <div class="skeleton skeleton-stats" id="treasurySkeleton"></div>
             <div class="stats" id="treasuryStats"></div>
             <div class="filter-buttons">
@@ -312,8 +359,13 @@
             <canvas id="treasuryChart"></canvas>
         </div>
         <div class="card">
-            <h2>Consumer Sentiment</h2>
-            <p class="card-description">University of Michigan index measuring consumer confidence in economic conditions.</p>
+            <div class="card-header">
+                <div>
+                    <h2>Consumer Sentiment</h2>
+                    <p class="card-description">University of Michigan index measuring consumer confidence in economic conditions.</p>
+                </div>
+                <button class="export-btn" id="sentimentExport">↓ CSV</button>
+            </div>
             <div class="skeleton skeleton-stats" id="sentimentSkeleton"></div>
             <div class="stats" id="sentimentStats"></div>
             <div class="filter-buttons">
@@ -484,6 +536,7 @@
                     btn.addEventListener('click', () => {
                         btnContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                         btn.classList.add('active');
+                        activeRange = btn.dataset.range;
                         renderChart(btn.dataset.range);
                     });
                 });
@@ -491,6 +544,21 @@
                 // Set All as default active
                 btnContainer.querySelector('[data-range="All"]').classList.add('active');
                 renderChart('All');
+                // Export button
+                const exportBtn = document.getElementById(canvasId.replace('Chart', 'Export'));
+                if (exportBtn) {
+                    exportBtn.addEventListener('click', () => {
+                        const filtered = filterData(activeRange);
+                        const csv = ['Date,Value', ...filtered.map(d => `${d.date},${d.value}`)].join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${label.replace(/ /g, '_')}_${activeRange}.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                }
                 if (skeleton) skeleton.style.display = 'none';
             }
 
