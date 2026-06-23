@@ -44,6 +44,21 @@
             <div class="stats" id="gdpStats"></div>
             <canvas id="gdpChart"></canvas>
         </div>
+        <div class="card">
+            <h2>Federal Funds Rate (%)</h2>
+            <div class="stats" id="ffrStats"></div>
+            <canvas id="ffrChart"></canvas>
+        </div>
+        <div class="card">
+            <h2>10-Year Treasury Yield (%)</h2>
+            <div class="stats" id="treasuryStats"></div>
+            <canvas id="treasuryChart"></canvas>
+        </div>
+        <div class="card">
+            <h2>Consumer Sentiment</h2>
+            <div class="stats" id="sentimentStats"></div>
+            <canvas id="sentimentChart"></canvas>
+        </div>
     </div>
     <script>
         async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
@@ -89,6 +104,9 @@
 fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
 fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
 fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
+fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a');
+fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
+fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
     </script>
 </body>
 </html>

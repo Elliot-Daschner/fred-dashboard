@@ -36,6 +36,18 @@ def unemployment():
 def gdp():
     return jsonify(get_fred_data("GDP"))
 
+@app.route("/api/ffr")
+def ffr():
+    return jsonify(get_fred_data("FEDFUNDS"))
+
+@app.route("/api/treasury")
+def treasury():
+    return jsonify(get_fred_data("DGS10"))
+
+@app.route("/api/sentiment")
+def sentiment():
+    return jsonify(get_fred_data("UMCSENT"))
+
 @app.route("/")
 def index():
     return render_template("index.html")
