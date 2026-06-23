@@ -293,6 +293,22 @@
                             responsive: true,
                             plugins: {
                                 legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        title: (items) => {
+                                            return 'Date: ' + items[0].label;
+                                        },
+                                        label: (item) => {
+                                            return `${label}: ${item.parsed.y.toFixed(2)}`;
+                                        }
+                                    },
+                                    backgroundColor: '#1a2b4a',
+                                    titleColor: '#aaa',
+                                    bodyColor: '#fff',
+                                    padding: 10,
+                                    cornerRadius: 8,
+                                    displayColors: false
+                                },
                                 annotation: {
                                     annotations: recessionData
                                         .filter(r => new Date(r.start) >= (filterData(range)[0] ? new Date(filterData(range)[0].date) : new Date(0)))
