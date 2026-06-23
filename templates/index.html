@@ -76,6 +76,41 @@
             margin-bottom: 16px;
             line-height: 1.4;
         }
+
+        .summary-banner {
+            background: white;
+            padding: 16px 40px;
+            display: flex;
+            gap: 32px;
+            align-items: center;
+            border-bottom: 1px solid #e8eaf0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            flex-wrap: wrap;
+        }
+        .summary-banner h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #aaa;
+            white-space: nowrap;
+        }
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #333;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot.green { background: #2a9d8f; }
+        .dot.red { background: #e63946; }
+        .dot.yellow { background: #e9c46a; }
     </style>
 </head>
 <body>
@@ -86,6 +121,15 @@
         </div>
         <div id="last-updated"></div>
     </header>
+    <div class="summary-banner">
+        <h3>Economy at a Glance</h3>
+        <div class="summary-item"><div class="dot" id="unempDot"></div><span id="unempSummary">Loading...</span></div>
+        <div class="summary-item"><div class="dot" id="inflationDot"></div><span id="inflationSummary">Loading...</span></div>
+        <div class="summary-item"><div class="dot" id="gdpDot"></div><span id="gdpSummary">Loading...</span></div>
+        <div class="summary-item"><div class="dot" id="ffrDot"></div><span id="ffrSummary">Loading...</span></div>
+        <div class="summary-item"><div class="dot" id="treasuryDot"></div><span id="treasurySummary">Loading...</span></div>
+        <div class="summary-item"><div class="dot" id="sentimentDot"></div><span id="sentimentSummary">Loading...</span></div>
+    </div>
     <div class="grid">
         <div class="card">
             <h2>Unemployment Rate (%)</h2>
@@ -176,6 +220,31 @@
         async function init() {
             const recessionData = await (await fetch('/api/recessions')).json();
 
+            function updateSummary(dotId, summaryId, current, previous, label) {
+                const change = current - previous;
+                const dot = document.getElementById(dotId);
+                const summary = document.getElementById(summaryId);
+                const direction = change > 0 ? 'Rising' : change < 0 ? 'Falling' : 'Steady';
+
+                // For unemployment and inflation, rising is bad (red)
+                // For GDP and sentiment, rising is good (green)
+                // For FFR and treasury, we just show yellow (neutral)
+                const neutralIds = ['ffrDot', 'treasuryDot'];
+                const badWhenRisingIds = ['unempDot', 'inflationDot'];
+
+                let color;
+                if (neutralIds.includes(dotId)) {
+                    color = 'yellow';
+                } else if (badWhenRisingIds.includes(dotId)) {
+                    color = change > 0 ? 'red' : 'green';
+                } else {
+                    color = change > 0 ? 'green' : 'red';
+                }
+
+                dot.className = `dot ${color}`;
+                summary.textContent = `${label}: ${current.toFixed(2)} (${direction})`;
+            }
+
             async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
                 const res = await fetch(endpoint);
                 const rawData = await res.json();
@@ -262,6 +331,18 @@
                         </span>
                     </div>
                 `;
+
+                const summaryMap = {
+                    unemploymentStats: { dotId: 'unempDot', summaryId: 'unempSummary', label: 'Unemployment' },
+                    inflationStats:    { dotId: 'inflationDot', summaryId: 'inflationSummary', label: 'CPI' },
+                    gdpStats:          { dotId: 'gdpDot', summaryId: 'gdpSummary', label: 'GDP' },
+                    ffrStats:          { dotId: 'ffrDot', summaryId: 'ffrSummary', label: 'Fed Funds Rate' },
+                    treasuryStats:     { dotId: 'treasuryDot', summaryId: 'treasurySummary', label: '10-Y Treasury' },
+                    sentimentStats:    { dotId: 'sentimentDot', summaryId: 'sentimentSummary', label: 'Consumer Sentiment' }
+                };
+
+                const s = summaryMap[statsId];
+                if (s) updateSummary(s.dotId, s.summaryId, current, previous, s.label);
         
                 // Filter button logic
                 btnContainer.querySelectorAll('.filter-btn').forEach(btn => {
@@ -276,7 +357,7 @@
                 btnContainer.querySelector('[data-range="All"]').classList.add('active');
                 renderChart('All');
             }
-        
+
             fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
             fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
             fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
