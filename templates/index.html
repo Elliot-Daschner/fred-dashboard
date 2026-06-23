@@ -130,6 +130,39 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .grid {
+                grid-template-columns: 1fr;
+                padding: 16px;
+                gap: 16px;
+            }
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+                padding: 16px;
+            }
+            #last-updated {
+                text-align: left;
+            }
+            .summary-banner {
+                padding: 12px 16px;
+                gap: 16px;
+            }
+            .stat-value {
+                font-size: 1.4rem;
+            }
+            .filter-buttons {
+                flex-wrap: wrap;
+            }
+        }
     </style>
 </head>
 <body>
