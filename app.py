@@ -63,17 +63,27 @@ def recessions():
         {"start": "2020-02-01", "end": "2020-04-01"}
     ])
 
+import concurrent.futures
+
 @app.route("/api/all")
 def all_series():
-    series = {
-        "unemployment": get_fred_data("UNRATE"),
-        "inflation": get_fred_data("CPIAUCSL"),
-        "gdp": get_fred_data("GDP"),
-        "ffr": get_fred_data("FEDFUNDS"),
-        "treasury": get_fred_data("DGS10"),
-        "sentiment": get_fred_data("UMCSENT")
+    series_ids = {
+        "unemployment": "UNRATE",
+        "inflation": "CPIAUCSL",
+        "gdp": "GDP",
+        "ffr": "FEDFUNDS",
+        "treasury": "DGS10",
+        "sentiment": "UMCSENT"
     }
-    return jsonify(series)
+    
+    def fetch(item):
+        key, series_id = item
+        return key, get_fred_data(series_id)
+    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = dict(executor.map(fetch, series_ids.items()))
+    
+    return jsonify(results)
 
 if __name__ == "__main__":
     app.run(debug=True)
