@@ -52,6 +52,21 @@
         .stat-change { font-size: 0.85rem; font-weight: 600; margin-top: 2px; }
         .up { color: #2a9d8f; }
         .down { color: #e63946; }
+
+        .filter-buttons { display: flex; gap: 8px; margin-bottom: 16px; }
+        .filter-btn {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .filter-btn:hover { border-color: #1a2b4a; color: #1a2b4a; }
+        .filter-btn.active { background: #1a2b4a; color: white; border-color: #1a2b4a; }
     </style>
 </head>
 <body>
@@ -66,82 +81,178 @@
         <div class="card">
             <h2>Unemployment Rate (%)</h2>
             <div class="stats" id="unemploymentStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
             <canvas id="unemploymentChart"></canvas>
         </div>
         <div class="card">
             <h2>CPI Inflation Index</h2>
             <div class="stats" id="inflationStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
             <canvas id="inflationChart"></canvas>
         </div>
         <div class="card">
             <h2>GDP (Billions USD)</h2>
             <div class="stats" id="gdpStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
             <canvas id="gdpChart"></canvas>
         </div>
         <div class="card">
             <h2>Federal Funds Rate (%)</h2>
             <div class="stats" id="ffrStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
             <canvas id="ffrChart"></canvas>
         </div>
         <div class="card">
             <h2>10-Year Treasury Yield (%)</h2>
             <div class="stats" id="treasuryStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
             <canvas id="treasuryChart"></canvas>
         </div>
         <div class="card">
             <h2>Consumer Sentiment</h2>
             <div class="stats" id="sentimentStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
             <canvas id="sentimentChart"></canvas>
         </div>
     </div>
     <script>
         async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
-    const res = await fetch(endpoint);
-    const data = await res.json();
-    const reversed = data.reverse();
-    const labels = reversed.map(d => d.date);
-    const values = reversed.map(d => parseFloat(d.value));
-
-    // Summary stats
-    const current = values[values.length - 1];
-    const previous = values[values.length - 2];
-    const change = (current - previous).toFixed(2);
-    const isUp = change >= 0;
-    const statsEl = document.getElementById(statsId);
-    statsEl.innerHTML = `
-        <div class="stat-item">
-            <span class="stat-label">Current</span>
-            <span class="stat-value">${current.toFixed(2)}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Change</span>
-            <span class="stat-change ${isUp ? 'up' : 'down'}">
-                ${isUp ? '▲' : '▼'} ${Math.abs(change)}
-            </span>
-        </div>
-    `;
-
-    new Chart(document.getElementById(canvasId), {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{ label, data: values, borderColor: color, tension: 0.3, pointRadius: 2, fill: false }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: { x: { ticks: { maxTicksLimit: 6 } } }
+            const res = await fetch(endpoint);
+            const rawData = await res.json();
+            const reversed = rawData.filter(d => d.value !== '.').reverse();
+    
+            const card = document.getElementById(canvasId).closest('.card');
+            const btnContainer = card.querySelector('.filter-buttons');
+            let activeRange = 'All';
+            let chartInstance = null;
+    
+            function filterData(range) {
+                const now = new Date();
+                const cutoff = {
+                    '1M': new Date(now.getFullYear(), now.getMonth() - 1),
+                    '6M': new Date(now.getFullYear(), now.getMonth() - 6),
+                    '1Y': new Date(now.getFullYear() - 1, now.getMonth()),
+                    '5Y': new Date(now.getFullYear() - 5, now.getMonth()),
+                    '10Y': new Date(now.getFullYear() - 10, now.getMonth()),
+                    'All': new Date(0)
+                }[range];
+    
+                return reversed.filter(d => new Date(d.date) >= cutoff);
+            }
+    
+            function renderChart(range) {
+                const filtered = filterData(range);
+                const labels = filtered.map(d => d.date);
+                const values = filtered.map(d => parseFloat(d.value));
+    
+                if (chartInstance) chartInstance.destroy();
+    
+                chartInstance = new Chart(document.getElementById(canvasId), {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label,
+                            data: values,
+                            borderColor: color,
+                            tension: 0.3,
+                            pointRadius: 2,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { maxTicksLimit: 6 } },
+                            y: { grid: { color: 'rgba(0,0,0,0.04)' } }
+                        }
+                    }
+                });
+            }
+    
+            // Summary stats from full dataset
+            const current = parseFloat(reversed[reversed.length - 1].value);
+            const previous = parseFloat(reversed[reversed.length - 2].value);
+            const change = (current - previous).toFixed(2);
+            const isUp = change >= 0;
+            document.getElementById(statsId).innerHTML = `
+                <div class="stat-item">
+                    <span class="stat-label">Current</span>
+                    <span class="stat-value">${current.toFixed(2)}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Change</span>
+                    <span class="stat-change ${isUp ? 'up' : 'down'}">
+                        ${isUp ? '▲' : '▼'} ${Math.abs(change)}
+                    </span>
+                </div>
+            `;
+    
+            // Filter button logic
+            btnContainer.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    btnContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderChart(btn.dataset.range);
+                });
+            });
+    
+            // Set All as default active
+            btnContainer.querySelector('[data-range="All"]').classList.add('active');
+            renderChart('All');
         }
-    });
-}
-
-fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
-fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
-fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
-fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a');
-fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
-fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
-document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    
+        fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
+        fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
+        fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
+        fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a');
+        fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
+        fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
+    
+        document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     </script>
 </body>
 </html>
