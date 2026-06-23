@@ -111,6 +111,25 @@
         .dot.green { background: #2a9d8f; }
         .dot.red { background: #e63946; }
         .dot.yellow { background: #e9c46a; }
+
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+        }
+        .skeleton-stats {
+            height: 60px;
+            margin-bottom: 20px;
+        }
+        .skeleton-chart {
+            height: 200px;
+            margin-bottom: 8px;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
 <body>
@@ -134,6 +153,7 @@
         <div class="card">
             <h2>Unemployment Rate (%)</h2>
             <p class="card-description">Percentage of the labor force actively seeking but unable to find work.</p>
+            <div class="skeleton skeleton-stats" id="unemploymentSkeleton"></div>
             <div class="stats" id="unemploymentStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -148,6 +168,7 @@
         <div class="card">
             <h2>CPI Inflation Index</h2>
             <p class="card-description">Measures changes in the price level of a basket of consumer goods and services.</p>
+            <div class="skeleton skeleton-stats" id="inflationSkeleton"></div>
             <div class="stats" id="inflationStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -162,6 +183,7 @@
         <div class="card">
             <h2>GDP (Billions USD)</h2>
             <p class="card-description">Total monetary value of all goods and services produced in the U.S. economy.</p>
+            <div class="skeleton skeleton-stats" id="gdpSkeleton"></div>
             <div class="stats" id="gdpStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -176,6 +198,7 @@
         <div class="card">
             <h2>Federal Funds Rate (%)</h2>
             <p class="card-description">The interest rate at which banks lend reserve balances to each other overnight.</p>
+            <div class="skeleton skeleton-stats" id="ffrSkeleton"></div>
             <div class="stats" id="ffrStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -190,6 +213,7 @@
         <div class="card">
             <h2>10-Year Treasury Yield (%)</h2>
             <p class="card-description">Return on U.S. government debt maturing in 10 years, a key benchmark for borrowing costs.</p>
+            <div class="skeleton skeleton-stats" id="treasurySkeleton"></div>
             <div class="stats" id="treasuryStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -204,6 +228,7 @@
         <div class="card">
             <h2>Consumer Sentiment</h2>
             <p class="card-description">University of Michigan index measuring consumer confidence in economic conditions.</p>
+            <div class="skeleton skeleton-stats" id="sentimentSkeleton"></div>
             <div class="stats" id="sentimentStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -246,6 +271,7 @@
             }
 
             async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
+                const skeleton = document.getElementById(canvasId.replace('Chart', 'Skeleton'));
                 const res = await fetch(endpoint);
                 const rawData = await res.json();
                 const reversed = rawData.filter(d => d.value !== '.').reverse();
@@ -372,6 +398,7 @@
                 // Set All as default active
                 btnContainer.querySelector('[data-range="All"]').classList.add('active');
                 renderChart('All');
+                if (skeleton) skeleton.style.display = 'none';
             }
 
             fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
