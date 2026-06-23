@@ -68,6 +68,14 @@
         }
         .filter-btn:hover { border-color: #1a2b4a; color: #1a2b4a; }
         .filter-btn.active { background: #1a2b4a; color: white; border-color: #1a2b4a; }
+
+        .card-description {
+            font-size: 0.75rem;
+            color: #999;
+            margin-top: -10px;
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -81,6 +89,7 @@
     <div class="grid">
         <div class="card">
             <h2>Unemployment Rate (%)</h2>
+            <p class="card-description">Percentage of the labor force actively seeking but unable to find work.</p>
             <div class="stats" id="unemploymentStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -94,6 +103,7 @@
         </div>
         <div class="card">
             <h2>CPI Inflation Index</h2>
+            <p class="card-description">Measures changes in the price level of a basket of consumer goods and services.</p>
             <div class="stats" id="inflationStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -107,6 +117,7 @@
         </div>
         <div class="card">
             <h2>GDP (Billions USD)</h2>
+            <p class="card-description">Total monetary value of all goods and services produced in the U.S. economy.</p>
             <div class="stats" id="gdpStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -120,6 +131,7 @@
         </div>
         <div class="card">
             <h2>Federal Funds Rate (%)</h2>
+            <p class="card-description">The interest rate at which banks lend reserve balances to each other overnight.</p>
             <div class="stats" id="ffrStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -133,6 +145,7 @@
         </div>
         <div class="card">
             <h2>10-Year Treasury Yield (%)</h2>
+            <p class="card-description">Return on U.S. government debt maturing in 10 years, a key benchmark for borrowing costs.</p>
             <div class="stats" id="treasuryStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
@@ -146,6 +159,7 @@
         </div>
         <div class="card">
             <h2>Consumer Sentiment</h2>
+            <p class="card-description">University of Michigan index measuring consumer confidence in economic conditions.</p>
             <div class="stats" id="sentimentStats"></div>
             <div class="filter-buttons">
                 <button class="filter-btn" data-range="1M">1M</button>
