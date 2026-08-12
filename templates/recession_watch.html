@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Recession Watch – FRED Dashboard{% endblock %}
+{% block header_title %}Recession Watch{% endblock %}
+{% block header_subtitle %}Real-time recession signals from the Federal Reserve Bank of St. Louis{% endblock %}
+
+{% block content %}
+    <div class="verdict-banner" id="verdictBanner">
+        <div class="verdict-dot" id="verdictDot"></div>
+        <div class="verdict-text">
+            <span class="verdict-label" id="verdictLabel">Loading recession signal…</span>
+            <span class="verdict-detail" id="verdictDetail"></span>
+        </div>
+    </div>
+    <div class="grid">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Sahm Rule Recession Indicator</h2>
+                    <p class="card-description">Real-time Sahm Rule value. A recession signal triggers when this reaches 0.50.</p>
+                </div>
+                <button class="export-btn" id="sahmExport">↓ CSV</button>
+            </div>
+            <div class="skeleton skeleton-stats" id="sahmSkeleton"></div>
+            <div class="stats" id="sahmStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
+            <canvas id="sahmChart"></canvas>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>30-Year Mortgage Rate (%)</h2>
+                    <p class="card-description">Average U.S. 30-year fixed mortgage rate, updated weekly.</p>
+                </div>
+                <button class="export-btn" id="mortgageExport">↓ CSV</button>
+            </div>
+            <div class="skeleton skeleton-stats" id="mortgageSkeleton"></div>
+            <div class="stats" id="mortgageStats"></div>
+            <div class="filter-buttons">
+                <button class="filter-btn" data-range="1M">1M</button>
+                <button class="filter-btn" data-range="6M">6M</button>
+                <button class="filter-btn" data-range="1Y">1Y</button>
+                <button class="filter-btn" data-range="5Y">5Y</button>
+                <button class="filter-btn" data-range="10Y">10Y</button>
+                <button class="filter-btn" data-range="All">All</button>
+            </div>
+            <canvas id="mortgageChart"></canvas>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        async function initRecessionWatch() {
+            await loadRecessionData();
+
+            fetchAndRender('/api/sahm', 'sahmChart', 'sahmStats', 'Sahm Rule', '#e63946', (current) => {
+                const dot = document.getElementById('verdictDot');
+                const label = document.getElementById('verdictLabel');
+                const detail = document.getElementById('verdictDetail');
+                const triggered = current >= 0.50;
+                dot.className = 'verdict-dot ' + (triggered ? 'red' : 'green');
+                label.textContent = triggered ? 'Recession Signal: ON' : 'Recession Signal: OFF';
+                detail.textContent = `Sahm Rule at ${current.toFixed(2)} (trigger threshold: 0.50)`;
+            });
+
+            fetchAndRender('/api/mortgage', 'mortgageChart', 'mortgageStats', '30-Year Mortgage Rate', '#6a4c93');
+
+            setLastUpdated();
+        }
+        initRecessionWatch();
+    </script>
+{% endblock %}

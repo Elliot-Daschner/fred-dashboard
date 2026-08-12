@@ -48,9 +48,21 @@ def treasury():
 def sentiment():
     return jsonify(get_fred_data("UMCSENT"))
 
+@app.route("/api/sahm")
+def sahm():
+    return jsonify(get_fred_data("SAHMREALTIME", limit=800))
+
+@app.route("/api/mortgage")
+def mortgage():
+    return jsonify(get_fred_data("MORTGAGE30US", limit=600))
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/recession-watch")
+def recession_watch():
+    return render_template("recession_watch.html")
 
 @app.route("/api/recessions")
 def recessions():

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FRED Economic Dashboard{% endblock %}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div>
+            <h1>{% block header_title %}FRED Dashboard{% endblock %}</h1>
+            <p>{% block header_subtitle %}Data sourced from the Federal Reserve Bank of St. Louis{% endblock %}</p>
+        </div>
+        <nav class="main-nav">
+            <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a>
+            <a href="{{ url_for('recession_watch') }}" class="nav-link {% if request.endpoint == 'recession_watch' %}active{% endif %}">Recession Watch</a>
+        </nav>
+        <div id="last-updated"></div>
+    </header>
+    {% block content %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

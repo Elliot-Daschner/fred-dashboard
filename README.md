@@ -1,14 +1,14 @@
 # FRED Economic Dashboard
 
-A single-page dashboard for six U.S. macroeconomic indicators, pulled live from the Federal Reserve Economic Data (FRED) API.
+A two-page dashboard for U.S. macroeconomic indicators, pulled live from the Federal Reserve Economic Data (FRED) API.
 
 **Live:** https://fred-dashboard-5txq.onrender.com/
 
-<img width="1694" height="933" alt="FRED_Dashboard" src="https://github.com/user-attachments/assets/d04f4116-70b3-4e25-86af-585e73b2583c" />
+<img width="1600" alt="FRED Dashboard" src="docs/screenshot.png" />
 
 ## What it does
 
-Six series, each with its own chart: unemployment, inflation, GDP, the federal funds rate, the 10-year Treasury yield, and consumer sentiment.
+**Dashboard** (`/`) — six series, each with its own chart: unemployment, inflation, GDP, the federal funds rate, the 10-year Treasury yield, and consumer sentiment.
 
 - Interactive time-series charts with NBER recession periods shaded
 - Date range filtering
@@ -16,13 +16,17 @@ Six series, each with its own chart: unemployment, inflation, GDP, the federal f
 - A 6x6 correlation heatmap across all indicators
 - Mobile responsive
 
+**Recession Watch** (`/recession-watch`) — a second page built around two more series: the Sahm Rule real-time recession indicator and the 30-year mortgage rate. A verdict banner reads the Sahm Rule's latest value against its 0.50 recession-trigger threshold and shows a plain ON/OFF signal; the mortgage rate is shown as its own independent chart, not folded into that verdict.
+
 ## Stack
 
-Python, Flask, and a Jinja template with Charts.js for the charts. No frontend build step and no database. Deployed on Render, served by gunicorn via a Procfile.
+Python, Flask, and Jinja templates with Chart.js for the charts. No frontend build step and no database. Deployed on Render, served by gunicorn via a Procfile.
+
+`templates/base.html` holds the shared layout (head, nav, header) that both pages extend; shared CSS and JS live in `static/` and are loaded once from there rather than duplicated per page.
 
 ## How it works
 
-The backend is a thin aggregator over the FRED API rather than a data store. A single `get_fred_data` function calls FRED's observations endpoint and reshapes the response; six routes wrap the six series. Everything is fetched live on page load.
+The backend is a thin aggregator over the FRED API rather than a data store. A single `get_fred_data` function calls FRED's observations endpoint and reshapes the response; eight routes wrap the eight series (six dashboard indicators plus the Sahm Rule and mortgage rate for Recession Watch). Everything is fetched live on page load.
 
 ### Parallel fetching for the heatmap
 
@@ -53,6 +57,7 @@ Kept deliberately visible rather than papered over:
 - **Redundant fetches.** The six chart endpoints and `/api/all` request the same six series, roughly doubling FRED calls per load. Known, unaddressed.
 - **Recession shading is hardcoded** from NBER dates rather than pulled from a source, so it needs a manual update when NBER announces a new cycle.
 - **Correlation alignment is approximate**, as described above.
+- **Sahm Rule can lag by a month or two.** FRED marks the most recent observations as `.` until they're finalized; the client filters those out, so the Recession Watch verdict may reflect a slightly older month than the calendar-current one.
 - **No automated tests.**
 
 ## Running locally
@@ -76,7 +81,7 @@ The key is loaded with python-dotenv and is never committed.
 python app.py
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:5000 for the dashboard, or http://localhost:5000/recession-watch for Recession Watch.
 
 ## Possible next steps
 

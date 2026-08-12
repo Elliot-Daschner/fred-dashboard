@@ -1,253 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FRED Economic Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: #eef1f7; color: #333; }
-        header {
-            background: linear-gradient(135deg, #1a2b4a, #2d4a7a);
-            color: white;
-            padding: 24px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
-        }
-        header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.3px; }
-        header p { font-size: 0.8rem; opacity: 0.65; margin-top: 4px; }
-        #last-updated { font-size: 0.78rem; opacity: 0.6; text-align: right; }
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 24px;
-            padding: 32px 40px;
-        }
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 28px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-        }
-        .card h2 {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #444;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 16px;
-        }
-        .stats { display: flex; gap: 32px; margin-bottom: 20px; }
-        .stat-item { display: flex; flex-direction: column; gap: 2px; }
-        .stat-label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 1.8rem; font-weight: 700; color: #1a2b4a; line-height: 1; }
-        .stat-change { font-size: 0.85rem; font-weight: 600; margin-top: 2px; }
-        .up { color: #2a9d8f; }
-        .down { color: #e63946; }
+{% extends "base.html" %}
 
-        .filter-buttons { display: flex; gap: 8px; margin-bottom: 16px; }
-        .filter-btn {
-            padding: 4px 10px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background: white;
-            color: #555;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .filter-btn:hover { border-color: #1a2b4a; color: #1a2b4a; }
-        .filter-btn.active { background: #1a2b4a; color: white; border-color: #1a2b4a; }
-
-        .card-description {
-            font-size: 0.75rem;
-            color: #999;
-            margin-top: -10px;
-            margin-bottom: 16px;
-            line-height: 1.4;
-        }
-
-        .summary-banner {
-            background: white;
-            padding: 16px 40px;
-            display: flex;
-            gap: 32px;
-            align-items: center;
-            border-bottom: 1px solid #e8eaf0;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            flex-wrap: wrap;
-        }
-        .summary-banner h3 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #aaa;
-            white-space: nowrap;
-        }
-        .summary-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: #333;
-        }
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .dot.green { background: #2a9d8f; }
-        .dot.red { background: #e63946; }
-        .dot.yellow { background: #e9c46a; }
-
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 8px;
-        }
-        .skeleton-stats {
-            height: 60px;
-            margin-bottom: 20px;
-        }
-        .skeleton-chart {
-            height: 200px;
-            margin-bottom: 8px;
-        }
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        @media (max-width: 1024px) {
-            .grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 640px) {
-            .grid {
-                grid-template-columns: 1fr;
-                padding: 16px;
-                gap: 16px;
-            }
-            header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-                padding: 16px;
-            }
-            #last-updated {
-                text-align: left;
-            }
-            .summary-banner {
-                padding: 12px 16px;
-                gap: 16px;
-            }
-            .stat-value {
-                font-size: 1.4rem;
-            }
-            .filter-buttons {
-                flex-wrap: wrap;
-            }
-        }
-
-        .correlation-section {
-            padding: 0 40px 40px 40px;
-        }
-        .correlation-card {
-            background: white;
-            border-radius: 16px;
-            padding: 28px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-        }
-        .correlation-card h2 {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #444;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-        }
-        .correlation-card .card-description {
-            margin-top: 0;
-            margin-bottom: 24px;
-        }
-        .heatmap {
-            display: grid;
-            grid-template-columns: 120px repeat(6, 1fr);
-            gap: 3px;
-            font-size: 0.75rem;
-        }
-        .heatmap-cell {
-            padding: 10px 4px;
-            text-align: center;
-            border-radius: 6px;
-            font-weight: 600;
-            color: white;
-        }
-        .heatmap-label {
-            padding: 10px 4px;
-            text-align: right;
-            font-size: 0.75rem;
-            color: #666;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            font-weight: 500;
-        }
-        .heatmap-header {
-            padding: 10px 4px;
-            text-align: center;
-            font-size: 0.7rem;
-            color: #999;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 4px;
-        }
-        .export-btn {
-            background: none;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 4px 8px;
-            font-size: 0.7rem;
-            color: #999;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            white-space: nowrap;
-        }
-        .export-btn:hover {
-            border-color: #1a2b4a;
-            color: #1a2b4a;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div>
-            <h1>FRED Dashboard</h1>
-            <p>Data sourced from the Federal Reserve Bank of St. Louis</p>
-        </div>
-        <div id="last-updated"></div>
-    </header>
+{% block content %}
     <div class="summary-banner">
         <h3>Economy at a Glance</h3>
         <div class="summary-item"><div class="dot" id="unempDot"></div><span id="unempSummary">Loading...</span></div>
@@ -302,7 +55,7 @@
             <div class="card-header">
                 <div>
                     <h2>GDP (Billions USD)</h2>
-                    <p class="card-description">Total monetary value of all goods and services produced in the U.S. economy.</p> 
+                    <p class="card-description">Total monetary value of all goods and services produced in the U.S. economy.</p>
                 </div>
                 <button class="export-btn" id="gdpExport">↓ CSV</button>
             </div>
@@ -386,189 +139,26 @@
             <div class="heatmap" id="heatmap"></div>
         </div>
     </div>
+{% endblock %}
+
+{% block scripts %}
     <script>
-        async function init() {
-            const recessionData = await (await fetch('/api/recessions')).json();
+        async function initDashboard() {
+            await loadRecessionData();
 
-            function updateSummary(dotId, summaryId, current, previous, label) {
-                const change = current - previous;
-                const dot = document.getElementById(dotId);
-                const summary = document.getElementById(summaryId);
-                const direction = change > 0 ? 'Rising' : change < 0 ? 'Falling' : 'Steady';
+            fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946',
+                (cur, prev) => updateSummary('unempDot', 'unempSummary', cur, prev, 'Unemployment', 'bad-when-rising'));
+            fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d',
+                (cur, prev) => updateSummary('inflationDot', 'inflationSummary', cur, prev, 'CPI', 'bad-when-rising'));
+            fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f',
+                (cur, prev) => updateSummary('gdpDot', 'gdpSummary', cur, prev, 'GDP', 'good-when-rising'));
+            fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a',
+                (cur, prev) => updateSummary('ffrDot', 'ffrSummary', cur, prev, 'Fed Funds Rate', 'neutral'));
+            fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93',
+                (cur, prev) => updateSummary('treasuryDot', 'treasurySummary', cur, prev, '10-Y Treasury', 'neutral'));
+            fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261',
+                (cur, prev) => updateSummary('sentimentDot', 'sentimentSummary', cur, prev, 'Consumer Sentiment', 'good-when-rising'));
 
-                // For unemployment and inflation, rising is bad (red)
-                // For GDP and sentiment, rising is good (green)
-                // For FFR and treasury, we just show yellow (neutral)
-                const neutralIds = ['ffrDot', 'treasuryDot'];
-                const badWhenRisingIds = ['unempDot', 'inflationDot'];
-
-                let color;
-                if (neutralIds.includes(dotId)) {
-                    color = 'yellow';
-                } else if (badWhenRisingIds.includes(dotId)) {
-                    color = change > 0 ? 'red' : 'green';
-                } else {
-                    color = change > 0 ? 'green' : 'red';
-                }
-
-                dot.className = `dot ${color}`;
-                summary.textContent = `${label}: ${current.toFixed(2)} (${direction})`;
-            }
-
-            async function fetchAndRender(endpoint, canvasId, statsId, label, color) {
-                const skeleton = document.getElementById(canvasId.replace('Chart', 'Skeleton'));
-                const res = await fetch(endpoint);
-                const rawData = await res.json();
-                const reversed = rawData.filter(d => d.value !== '.').reverse();
-        
-                const card = document.getElementById(canvasId).closest('.card');
-                const btnContainer = card.querySelector('.filter-buttons');
-                let activeRange = 'All';
-                let chartInstance = null;
-        
-                function filterData(range) {
-                    const now = new Date();
-                    const cutoff = {
-                        '1M': new Date(now.getFullYear(), now.getMonth() - 1),
-                        '6M': new Date(now.getFullYear(), now.getMonth() - 6),
-                        '1Y': new Date(now.getFullYear() - 1, now.getMonth()),
-                        '5Y': new Date(now.getFullYear() - 5, now.getMonth()),
-                        '10Y': new Date(now.getFullYear() - 10, now.getMonth()),
-                        'All': new Date(0)
-                    }[range];
-        
-                    return reversed.filter(d => new Date(d.date) >= cutoff);
-                }
-        
-                function renderChart(range) {
-                    const filtered = filterData(range);
-                    const labels = filtered.map(d => d.date);
-                    const values = filtered.map(d => parseFloat(d.value));
-        
-                    if (chartInstance) chartInstance.destroy();
-        
-                    chartInstance = new Chart(document.getElementById(canvasId), {
-                        type: 'line',
-                        data: {
-                            labels,
-                            datasets: [{
-                                label,
-                                data: values,
-                                borderColor: color,
-                                tension: 0.3,
-                                pointRadius: 2,
-                                fill: false
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: {
-                                    callbacks: {
-                                        title: (items) => {
-                                            return 'Date: ' + items[0].label;
-                                        },
-                                        label: (item) => {
-                                            return `${label}: ${item.parsed.y.toFixed(2)}`;
-                                        }
-                                    },
-                                    backgroundColor: '#1a2b4a',
-                                    titleColor: '#aaa',
-                                    bodyColor: '#fff',
-                                    padding: 10,
-                                    cornerRadius: 8,
-                                    displayColors: false
-                                },
-                                annotation: {
-                                    annotations: recessionData
-                                        .filter(r => new Date(r.start) >= (filterData(range)[0] ? new Date(filterData(range)[0].date) : new Date(0)))
-                                        .map((r, i) => ({
-                                            type: 'box',
-                                            xMin: r.start,
-                                            xMax: r.end,
-                                            backgroundColor: 'rgba(200, 200, 200, 0.25)',
-                                            borderWidth: 0,
-                                            label: { display: false }
-                                        }))
-                                }
-                            },
-                            scales: {
-                                x: { ticks: { maxTicksLimit: 6 } },
-                                y: { grid: { color: 'rgba(0,0,0,0.04)' } }
-                            }
-                        }
-                    });
-                }
-        
-                // Summary stats from full dataset
-                const current = parseFloat(reversed[reversed.length - 1].value);
-                const previous = parseFloat(reversed[reversed.length - 2].value);
-                const change = (current - previous).toFixed(2);
-                const isUp = change >= 0;
-                document.getElementById(statsId).innerHTML = `
-                    <div class="stat-item">
-                        <span class="stat-label">Current</span>
-                        <span class="stat-value">${current.toFixed(2)}</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Change</span>
-                        <span class="stat-change ${isUp ? 'up' : 'down'}">
-                            ${isUp ? '▲' : '▼'} ${Math.abs(change)}
-                        </span>
-                    </div>
-                `;
-
-                const summaryMap = {
-                    unemploymentStats: { dotId: 'unempDot', summaryId: 'unempSummary', label: 'Unemployment' },
-                    inflationStats:    { dotId: 'inflationDot', summaryId: 'inflationSummary', label: 'CPI' },
-                    gdpStats:          { dotId: 'gdpDot', summaryId: 'gdpSummary', label: 'GDP' },
-                    ffrStats:          { dotId: 'ffrDot', summaryId: 'ffrSummary', label: 'Fed Funds Rate' },
-                    treasuryStats:     { dotId: 'treasuryDot', summaryId: 'treasurySummary', label: '10-Y Treasury' },
-                    sentimentStats:    { dotId: 'sentimentDot', summaryId: 'sentimentSummary', label: 'Consumer Sentiment' }
-                };
-
-                const s = summaryMap[statsId];
-                if (s) updateSummary(s.dotId, s.summaryId, current, previous, s.label);
-        
-                // Filter button logic
-                btnContainer.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        btnContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        activeRange = btn.dataset.range;
-                        renderChart(btn.dataset.range);
-                    });
-                });
-        
-                // Set All as default active
-                btnContainer.querySelector('[data-range="All"]').classList.add('active');
-                renderChart('All');
-                // Export button
-                const exportBtn = document.getElementById(canvasId.replace('Chart', 'Export'));
-                if (exportBtn) {
-                    exportBtn.addEventListener('click', () => {
-                        const filtered = filterData(activeRange);
-                        const csv = ['Date,Value', ...filtered.map(d => `${d.date},${d.value}`)].join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${label.replace(/ /g, '_')}_${activeRange}.csv`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    });
-                }
-                if (skeleton) skeleton.style.display = 'none';
-            }
-
-            fetchAndRender('/api/unemployment', 'unemploymentChart', 'unemploymentStats', 'Unemployment Rate', '#e63946');
-            fetchAndRender('/api/inflation', 'inflationChart', 'inflationStats', 'CPI', '#457b9d');
-            fetchAndRender('/api/gdp', 'gdpChart', 'gdpStats', 'GDP', '#2a9d8f');
-            fetchAndRender('/api/ffr', 'ffrChart', 'ffrStats', 'Federal Funds Rate', '#e9c46a');
-            fetchAndRender('/api/treasury', 'treasuryChart', 'treasuryStats', '10-Year Treasury', '#6a4c93');
-            fetchAndRender('/api/sentiment', 'sentimentChart', 'sentimentStats', 'Consumer Sentiment', '#f4a261');
-        
             // Correlation heatmap
             const allData = await (await fetch('/api/all')).json();
             const keys = ['unemployment', 'inflation', 'gdp', 'ffr', 'treasury', 'sentiment'];
@@ -583,7 +173,7 @@
             function getNearestValue(ds, date) {
                 if (ds.has(date)) return ds.get(date);
                 const dates = [...ds.keys()].sort();
-                const nearest = dates.reduce((prev, curr) => 
+                const nearest = dates.reduce((prev, curr) =>
                     Math.abs(new Date(curr) - new Date(date)) < Math.abs(new Date(prev) - new Date(date)) ? curr : prev
                 );
                 return ds.get(nearest);
@@ -629,9 +219,8 @@
                 });
             });
 
-            document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            setLastUpdated();
         }
-        init();
+        initDashboard();
     </script>
-</body>
-</html>
+{% endblock %}
