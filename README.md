@@ -16,11 +16,11 @@ A two-page dashboard for U.S. macroeconomic indicators, pulled live from the Fed
 - A 6x6 correlation heatmap across all indicators
 - Mobile responsive
 
-**Recession Watch** (`/recession-watch`) — a second page built around two more series: the Sahm Rule real-time recession indicator and the 30-year mortgage rate. A verdict banner reads the Sahm Rule's latest value against its 0.50 recession-trigger threshold and shows a plain ON/OFF signal; the mortgage rate is shown as its own independent chart, not folded into that verdict.
+**Recession Watch** (`/recession-watch`) — a second page built around three signals: the Sahm Rule real-time recession indicator, the 30-year mortgage rate, and a logistic regression model estimating recession probability over the next 12 months. A verdict banner reads the Sahm Rule's latest value against its 0.50 recession-trigger threshold and shows a plain ON/OFF signal; the mortgage rate is shown as its own independent chart, not folded into that verdict; the probability model is a separate card with a full coefficient breakdown of what's driving its estimate.
 
 ## Stack
 
-Python, Flask, and Jinja templates with Chart.js for the charts. No frontend build step and no database. Deployed on Render, served by gunicorn via a Procfile.
+Python, Flask, and Jinja templates with Chart.js for the charts. No frontend build step and no database. Deployed on Render, served by gunicorn via a Procfile. pandas/numpy/scikit-learn power the recession probability model described below.
 
 `templates/base.html` holds the shared layout (head, nav, header) that both pages extend; shared CSS and JS live in `static/` and are loaded once from there rather than duplicated per page.
 
@@ -49,6 +49,17 @@ GDP loaded slowly and returned less history than the other series. Two unrelated
 
 Fixed by adding a timeout and raising GDP's observation limit specifically.
 
+### Recession probability model
+
+`recession_model.py` fits a logistic regression on FRED's own monthly `USREC` recession flag, predicting the probability that a recession starts within the next 12 months from four features: the 10Y-3M Treasury yield spread, the Sahm Rule value, consumer sentiment, and CPI inflation (year-over-year). Logistic regression was chosen specifically over a more accurate but opaque model (e.g. gradient boosting) because its coefficients are directly readable — each one says, in effect, "when this feature is above its historical average, estimated recession probability moves up or down by this much" — which is what powers the per-feature breakdown on the Recession Watch card.
+
+Two things surfaced while building it that are worth naming rather than hiding:
+
+- **Collinearity distorts individual coefficients.** An unemployment-rate-change feature was dropped entirely because it was 84% correlated with the Sahm Rule (both are built from similar unemployment dynamics), which made one of their coefficients flip to a sign that looked backwards when both were in the model together, despite each being correctly signed on its own. A second, milder case of the same thing (consumer sentiment, correlated with CPI at -0.46) was kept rather than removed — economic indicators are inherently correlated with each other, so the API response and UI surface a `correlation_note` on any feature whose coefficient may be distorted this way, rather than pretending the four features are independent.
+- **No accuracy or AUC score is reported.** The training window has ~9 recession episodes. That's enough months of data, but very few independent *events* — months within one recession are highly correlated with each other, not 9 separate data points. Any train/test split small enough to leave meaningful data to train on would produce an accuracy number driven by which handful of months happened to land in the test set, which is false precision, not real confidence. The model is fit on the full history and left at that.
+
+The model trains once, lazily, on first request, and is cached in memory for the process's lifetime — not on a timer and not on every request. The underlying FRED series update at most monthly, and with so few recession episodes to learn from, one more month of ordinary data barely moves the fit; a new fit only happens when the server process restarts.
+
 ## Known limitations
 
 Kept deliberately visible rather than papered over:
@@ -58,6 +69,7 @@ Kept deliberately visible rather than papered over:
 - **Recession shading is hardcoded** from NBER dates rather than pulled from a source, so it needs a manual update when NBER announces a new cycle.
 - **Correlation alignment is approximate**, as described above.
 - **Sahm Rule can lag by a month or two.** FRED marks the most recent observations as `.` until they're finalized; the client filters those out, so the Recession Watch verdict may reflect a slightly older month than the calendar-current one.
+- **Recession probability model is trained on a small number of historical recessions (single digits) with no held-out test set** — treat it as illustrative/educational, not a validated forecast.
 - **No automated tests.**
 
 ## Running locally
