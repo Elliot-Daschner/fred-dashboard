@@ -18,7 +18,7 @@ Six series, each with its own chart: unemployment, inflation, GDP, the federal f
 
 ## Stack
 
-Python, Flask, and a Jinja template with inline JavaScript for the charts. No frontend build step and no database. Deployed on Render, served by gunicorn via a Procfile.
+Python, Flask, and a Jinja template with Charts.js for the charts. No frontend build step and no database. Deployed on Render, served by gunicorn via a Procfile.
 
 ## How it works
 
@@ -76,7 +76,7 @@ The key is loaded with python-dotenv and is never committed.
 python app.py
 ```
 
-Then open http://localhost:5000.
+Then open http://localhost:3000.
 
 ## Possible next steps
 
