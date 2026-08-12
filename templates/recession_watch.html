@@ -53,6 +53,18 @@
             </div>
             <canvas id="mortgageChart"></canvas>
         </div>
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Recession Probability Model</h2>
+                    <p class="card-description">Logistic regression estimate of recession probability within the next 12 months, trained on FRED's NBER-based recession history.</p>
+                </div>
+            </div>
+            <div class="skeleton skeleton-stats" id="modelSkeleton"></div>
+            <div class="model-probability" id="modelProbability"></div>
+            <div class="feature-bars" id="modelFeatureBars"></div>
+            <p class="model-caveat" id="modelCaveat"></p>
+        </div>
     </div>
 {% endblock %}
 
@@ -73,8 +85,52 @@
 
             fetchAndRender('/api/mortgage', 'mortgageChart', 'mortgageStats', '30-Year Mortgage Rate', '#6a4c93');
 
+            loadRecessionModel();
             setLastUpdated();
         }
+
+        async function loadRecessionModel() {
+            const skeleton = document.getElementById('modelSkeleton');
+            try {
+                const res = await fetch('/api/recession-model');
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                document.getElementById('modelProbability').innerHTML = `
+                    <span class="model-probability-value">${(data.probability * 100).toFixed(1)}%</span>
+                    <span class="stat-label">Estimated probability of recession in next 12 months (as of ${data.as_of})</span>
+                `;
+
+                // Bar widths are scaled relative to the largest contribution in
+                // *this* response, not a fixed constant -- contribution
+                // magnitudes vary a lot depending on how extreme today's
+                // readings are, so a fixed scale would make bars look nearly
+                // empty most of the time.
+                const maxAbs = Math.max(...data.breakdown.map(f => Math.abs(f.contribution)), 0.0001);
+
+                document.getElementById('modelFeatureBars').innerHTML = data.breakdown.map(f => `
+                    <div class="feature-bar-row">
+                        <span class="feature-bar-label">${f.feature}</span>
+                        <div class="feature-bar-track">
+                            <div class="feature-bar-fill ${f.contribution >= 0 ? 'positive' : 'negative'}"
+                                 style="width: ${(Math.abs(f.contribution) / maxAbs * 100).toFixed(0)}%"></div>
+                        </div>
+                        <span class="feature-bar-value">${f.raw_value}</span>
+                    </div>
+                    ${f.correlation_note ? `
+                    <div class="feature-bar-note">correlated with ${f.correlation_note.correlated_with} (r=${f.correlation_note.correlation}) — coefficient may be less stable due to overlapping signal</div>
+                    ` : ''}
+                `).join('');
+
+                document.getElementById('modelCaveat').textContent =
+                    `Trained on ${data.metadata.n_months} months of data (${data.metadata.training_start} to ${data.metadata.training_end}), containing only ${data.metadata.n_recession_episodes} historical recessions. This is a small-sample teaching model, not a validated forecast — treat the number as illustrative, not predictive.`;
+            } catch (e) {
+                document.getElementById('modelCaveat').textContent = 'Recession model unavailable: ' + e.message;
+            } finally {
+                skeleton.style.display = 'none';
+            }
+        }
+
         initRecessionWatch();
     </script>
 {% endblock %}
