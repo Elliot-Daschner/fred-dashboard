@@ -1,28 +1,8 @@
 from flask import Flask, jsonify, render_template
-from flask import Flask, jsonify
-import requests
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from fred_client import get_fred_data
+import recession_model
 
 app = Flask(__name__)
-
-FRED_API_KEY = os.getenv("FRED_API_KEY")
-FRED_BASE_URL = "https://api.stlouisfed.org/fred/series/observations"
-
-def get_fred_data(series_id, limit=50):
-    params = {
-        "series_id": series_id,
-        "api_key": FRED_API_KEY,
-        "file_type": "json",
-        "limit": limit,
-        "sort_order": "desc"
-    }
-    response = requests.get(FRED_BASE_URL, params=params, timeout=10)
-    data = response.json()
-    observations = data.get("observations", [])
-    return [{"date": o["date"], "value": o["value"]} for o in observations]
 
 @app.route("/api/inflation")
 def inflation():
@@ -55,6 +35,13 @@ def sahm():
 @app.route("/api/mortgage")
 def mortgage():
     return jsonify(get_fred_data("MORTGAGE30US", limit=600))
+
+@app.route("/api/recession-model")
+def recession_model_endpoint():
+    try:
+        return jsonify(recession_model.predict_current())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/")
 def index():
