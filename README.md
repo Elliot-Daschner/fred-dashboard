@@ -4,7 +4,7 @@ A two-page dashboard for U.S. macroeconomic indicators, pulled live from the Fed
 
 **Live:** https://fred-dashboard-5txq.onrender.com/
 
-<img width="1600" alt="FRED Dashboard" src="docs/screenshot.png" />
+<img width="1600" alt="Dashboard page" src="docs/screenshot.png" />
 
 ## What it does
 
@@ -17,6 +17,8 @@ A two-page dashboard for U.S. macroeconomic indicators, pulled live from the Fed
 - Mobile responsive
 
 **Recession Watch** (`/recession-watch`) — a second page built around three signals: the Sahm Rule real-time recession indicator, the 30-year mortgage rate, and a logistic regression model estimating recession probability over the next 12 months. A verdict banner reads the Sahm Rule's latest value against its 0.50 recession-trigger threshold and shows a plain ON/OFF signal; the mortgage rate is shown as its own independent chart, not folded into that verdict; the probability model is a separate card with a full coefficient breakdown of what's driving its estimate.
+
+<img width="1600" alt="Recession Watch page" src="docs/screenshot-recession-watch.png" />
 
 ## Stack
 
