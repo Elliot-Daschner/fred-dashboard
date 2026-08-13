@@ -13,6 +13,7 @@ dashboard.js's `recessionData` uses on the frontend (fetch once, reuse).
 """
 
 import concurrent.futures
+import sys
 import threading
 import warnings
 from datetime import datetime, timezone
@@ -30,6 +31,19 @@ from fred_client import get_fred_data
 # verified via model.n_iter_ during development), so it's suppressed
 # here rather than left to clutter server logs on every training call.
 warnings.filterwarnings("ignore", category=OptimizeWarning, message="Unknown solver options")
+
+
+def _log(stage):
+    # TEMPORARY diagnostic instrumentation while tracking down a SIGSEGV
+    # in production that doesn't reproduce locally. Python's own
+    # try/except can't catch a native crash, so this can't report the
+    # crash itself -- but flush=True guarantees each line actually
+    # reaches gunicorn's log before the process potentially dies, so
+    # whichever line is LAST in the logs is the last stage that
+    # completed, narrowing down exactly which call segfaults. Remove
+    # once the actual cause is found and fixed.
+    print(f"[recession_model] {stage}", file=sys.stderr, flush=True)
+
 
 # FRED series used to build the feature matrix + label.
 # GS10/TB3MS (not the dashboard's daily DGS10) so everything is already
@@ -87,17 +101,25 @@ def _series_to_monthly(raw, name):
     errors="coerce", and resample("MS") snaps every series onto an
     identical month-start index so they align cleanly when concatenated.
     """
+    _log(f"_series_to_monthly({name}): start, {len(raw)} raw rows")
     df = pd.DataFrame(raw)
+    _log(f"_series_to_monthly({name}): DataFrame built")
     df["date"] = pd.to_datetime(df["date"])
+    _log(f"_series_to_monthly({name}): to_datetime done")
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    _log(f"_series_to_monthly({name}): to_numeric done")
     s = df.set_index("date")["value"].sort_index().resample("MS").last()
+    _log(f"_series_to_monthly({name}): resample done, {len(s)} rows")
     s.name = name
     return s
 
 
 def _fetch_one(name, series_id):
     # Network I/O only. See the docstring below for why that split matters.
-    return name, get_fred_data(series_id, limit=1000)
+    _log(f"_fetch_one({name}={series_id}): requesting")
+    result = get_fred_data(series_id, limit=1000)
+    _log(f"_fetch_one({name}={series_id}): got {len(result)} rows")
+    return name, result
 
 
 def _fetch_raw_monthly_frame():
@@ -116,28 +138,27 @@ def _fetch_raw_monthly_frame():
     single request, not just the first cold one, to occasionally exceed
     gunicorn's worker timeout and truncate the response mid-stream.
 
-    IMPORTANT: only the raw HTTP fetch happens inside the worker
-    threads. _series_to_monthly (pandas/numpy: DataFrame construction,
-    to_datetime, resample) runs afterward, sequentially, on the main
-    thread. An earlier version called _series_to_monthly from inside
-    each thread, which crashed gunicorn workers in production with
-    SIGSEGV -- numpy/pandas lean on BLAS libraries underneath that
-    aren't guaranteed thread-safe for concurrent access on every
-    platform, and Render's Linux environment hit that instability even
-    though it never reproduced locally. Parallelizing the network calls
-    gets nearly all of the same speedup (the network was the actual
-    bottleneck) without touching numpy/pandas from more than one
-    thread at a time.
+    Only the raw HTTP fetch happens inside the worker threads --
+    _series_to_monthly (pandas/numpy work) runs afterward, sequentially,
+    on the main thread, to avoid touching numpy/pandas from more than
+    one thread at a time.
     """
+    _log("_fetch_raw_monthly_frame: start")
     with concurrent.futures.ThreadPoolExecutor() as executor:
         results = executor.map(_fetch_one, FRED_SERIES.keys(), FRED_SERIES.values())
     raw_by_name = dict(results)
+    _log("_fetch_raw_monthly_frame: all 7 fetches complete")
     frames = [_series_to_monthly(raw_by_name[name], name) for name in FRED_SERIES]
+    _log("_fetch_raw_monthly_frame: all 7 series converted to monthly")
     df = pd.concat(frames, axis=1).sort_index()
+    _log(f"_fetch_raw_monthly_frame: concat done, shape={df.shape}")
 
     df["yield_spread"] = df["yield_long"] - df["yield_short"]
+    _log("_fetch_raw_monthly_frame: yield_spread computed")
     df["unrate_chg_12m"] = df["unrate"] - df["unrate"].shift(12)
+    _log("_fetch_raw_monthly_frame: unrate_chg_12m computed")
     df["cpi_yoy"] = df["cpi"].pct_change(12, fill_method=None) * 100
+    _log("_fetch_raw_monthly_frame: cpi_yoy computed, returning")
 
     return df
 
@@ -164,7 +185,9 @@ def fetch_training_frame():
     than real ground truth. With min_periods=12 those rows become NaN
     and get dropped below by .dropna(), instead of being guessed at.
     """
+    _log("fetch_training_frame: start")
     df = _fetch_raw_monthly_frame()
+    _log("fetch_training_frame: got raw monthly frame, computing label")
     df["label"] = (
         df["label_source"]
         .shift(-1)
@@ -173,12 +196,15 @@ def fetch_training_frame():
         .max()
         .iloc[::-1]
     )
+    _log("fetch_training_frame: label computed, dropping NaN")
     # .dropna() here does triple duty: drops the ~12 trailing
     # unknowable-label months, drops leading months missing the 12-month
     # lookback needed for unrate_chg_12m/cpi_yoy, and drops anything
     # before whichever source series has the shortest history -- so the
     # effective training window falls out of the data itself.
-    return df[FEATURES + ["label"]].dropna()
+    result = df[FEATURES + ["label"]].dropna()
+    _log(f"fetch_training_frame: done, {len(result)} trainable rows")
+    return result
 
 
 def _count_recession_episodes(usrec):
@@ -211,19 +237,26 @@ def _correlation_notes(corr):
 
 
 def train():
+    _log("train: start")
     df = fetch_training_frame()
     X = df[FEATURES].values
     y = df["label"].values
+    _log(f"train: X/y extracted, X.shape={X.shape}")
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
+    _log("train: scaler.fit_transform done")
 
     model = LogisticRegression()
     model.fit(X_scaled, y)
+    _log("train: model.fit done")
 
     raw = _fetch_raw_monthly_frame()
+    _log("train: got raw frame again for episode count")
     episodes = _count_recession_episodes(raw["label_source"].loc[df.index[0]:df.index[-1]])
+    _log(f"train: episodes counted = {episodes}")
     correlations = df[FEATURES].corr()
+    _log("train: correlation matrix computed")
 
     metadata = {
         "trained_at": datetime.now(timezone.utc).isoformat(),
@@ -233,6 +266,7 @@ def train():
         "n_recession_months": int(df["label"].sum()),
         "n_recession_episodes": episodes,
     }
+    _log("train: metadata built, returning bundle")
     return {
         "model": model,
         "scaler": scaler,
@@ -254,7 +288,10 @@ def get_model():
     """
     with _CACHE_LOCK:
         if "bundle" not in _MODEL_CACHE:
+            _log("get_model: no cached bundle, calling train()")
             _MODEL_CACHE["bundle"] = train()
+        else:
+            _log("get_model: using cached bundle")
         return _MODEL_CACHE["bundle"]
 
 
@@ -299,16 +336,23 @@ def predict_current():
     prediction's own as_of date are returned so it's visible if they've
     drifted apart.
     """
+    _log("predict_current: start")
     bundle = get_model()
+    _log("predict_current: got model bundle")
     model, scaler, metadata = bundle["model"], bundle["scaler"], bundle["metadata"]
 
     latest = _fetch_raw_monthly_frame()[FEATURES].dropna().iloc[-1]
+    _log(f"predict_current: got latest row, as_of={latest.name}")
     x_scaled = scaler.transform(latest.values.reshape(1, -1))
+    _log("predict_current: scaler.transform done")
     probability = float(model.predict_proba(x_scaled)[0][1])
+    _log(f"predict_current: predict_proba done, probability={probability}")
 
-    return {
+    result = {
         "probability": round(probability, 4),
         "as_of": latest.name.strftime("%Y-%m-%d"),
         "breakdown": _feature_breakdown(model, x_scaled[0], latest, bundle["correlation_notes"]),
         "metadata": metadata,
     }
+    _log("predict_current: breakdown built, returning")
+    return result
