@@ -104,15 +104,20 @@ def _series_to_monthly(raw, name):
     _log(f"_series_to_monthly({name}): start, {len(raw)} raw rows")
     df = pd.DataFrame(raw)
     _log(f"_series_to_monthly({name}): DataFrame built")
-    # format="%Y-%m-%d" explicitly, not left to auto-detection: FRED's
-    # dates are always this exact format, and letting pandas infer the
-    # format runs through a more complex parsing path than telling it
-    # directly -- a production SIGSEGV was isolated (via the staged
-    # logging below) to this exact call, dying between DataFrame
-    # construction and to_datetime completing. An explicit format
-    # string is also just faster and more correct practice regardless.
-    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d")
-    _log(f"_series_to_monthly({name}): to_datetime done")
+    # Deliberately NOT pd.to_datetime(). Staged logging isolated a
+    # production SIGSEGV to that exact call -- dying between DataFrame
+    # construction and to_datetime completing -- and it reproduced
+    # identically whether or not an explicit format string was given,
+    # which rules out format auto-detection as the actual cause. This
+    # uses Python's stdlib datetime.strptime per-value instead, which
+    # goes through completely different code (pure CPython, not
+    # pandas/numpy's C extensions at all) as a way to sidestep whatever
+    # pandas-internal code path is crashing on this environment. Pandas
+    # still auto-converts a column of datetime.datetime objects into a
+    # proper DatetimeIndex when it's set as the index below, so
+    # .resample() downstream is unaffected.
+    df["date"] = [datetime.strptime(d, "%Y-%m-%d") for d in df["date"]]
+    _log(f"_series_to_monthly({name}): date parsed via strptime")
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     _log(f"_series_to_monthly({name}): to_numeric done")
     s = df.set_index("date")["value"].sort_index().resample("MS").last()
