@@ -96,7 +96,8 @@ def _series_to_monthly(raw, name):
 
 
 def _fetch_one(name, series_id):
-    return name, _series_to_monthly(get_fred_data(series_id, limit=1000), name)
+    # Network I/O only. See the docstring below for why that split matters.
+    return name, get_fred_data(series_id, limit=1000)
 
 
 def _fetch_raw_monthly_frame():
@@ -106,19 +107,33 @@ def _fetch_raw_monthly_frame():
     same "just ask for plenty" pattern the app's existing /api/sahm
     (limit=800) and /api/mortgage (limit=600) routes already use.
 
-    The 7 series are fetched in parallel via ThreadPoolExecutor -- the
-    same fix app.py's /api/all already applies for the same reason
+    The 7 series' HTTP fetches run in parallel via ThreadPoolExecutor --
+    the same fix app.py's /api/all already applies for the same reason
     (these are blocking network calls, not CPU work, so the waits can
     overlap). This isn't just an optimization here: predict_current()
     calls this function fresh on every request (by design -- see its
     docstring), so a sequential 7-call fetch was slow enough on every
     single request, not just the first cold one, to occasionally exceed
     gunicorn's worker timeout and truncate the response mid-stream.
+
+    IMPORTANT: only the raw HTTP fetch happens inside the worker
+    threads. _series_to_monthly (pandas/numpy: DataFrame construction,
+    to_datetime, resample) runs afterward, sequentially, on the main
+    thread. An earlier version called _series_to_monthly from inside
+    each thread, which crashed gunicorn workers in production with
+    SIGSEGV -- numpy/pandas lean on BLAS libraries underneath that
+    aren't guaranteed thread-safe for concurrent access on every
+    platform, and Render's Linux environment hit that instability even
+    though it never reproduced locally. Parallelizing the network calls
+    gets nearly all of the same speedup (the network was the actual
+    bottleneck) without touching numpy/pandas from more than one
+    thread at a time.
     """
     with concurrent.futures.ThreadPoolExecutor() as executor:
         results = executor.map(_fetch_one, FRED_SERIES.keys(), FRED_SERIES.values())
-    frames = dict(results)
-    df = pd.concat([frames[name] for name in FRED_SERIES], axis=1).sort_index()
+    raw_by_name = dict(results)
+    frames = [_series_to_monthly(raw_by_name[name], name) for name in FRED_SERIES]
+    df = pd.concat(frames, axis=1).sort_index()
 
     df["yield_spread"] = df["yield_long"] - df["yield_short"]
     df["unrate_chg_12m"] = df["unrate"] - df["unrate"].shift(12)
