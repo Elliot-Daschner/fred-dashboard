@@ -104,7 +104,14 @@ def _series_to_monthly(raw, name):
     _log(f"_series_to_monthly({name}): start, {len(raw)} raw rows")
     df = pd.DataFrame(raw)
     _log(f"_series_to_monthly({name}): DataFrame built")
-    df["date"] = pd.to_datetime(df["date"])
+    # format="%Y-%m-%d" explicitly, not left to auto-detection: FRED's
+    # dates are always this exact format, and letting pandas infer the
+    # format runs through a more complex parsing path than telling it
+    # directly -- a production SIGSEGV was isolated (via the staged
+    # logging below) to this exact call, dying between DataFrame
+    # construction and to_datetime completing. An explicit format
+    # string is also just faster and more correct practice regardless.
+    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d")
     _log(f"_series_to_monthly({name}): to_datetime done")
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
     _log(f"_series_to_monthly({name}): to_numeric done")
