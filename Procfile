@@ -1,1 +1,1 @@
-web: gunicorn app:app --timeout 60
+web: OPENBLAS_CORETYPE=NEHALEM OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 gunicorn app:app --timeout 60
