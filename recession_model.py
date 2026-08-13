@@ -12,6 +12,7 @@ use, and cached in memory for the process's lifetime -- the same pattern
 dashboard.js's `recessionData` uses on the frontend (fetch once, reuse).
 """
 
+import concurrent.futures
 import threading
 import warnings
 from datetime import datetime, timezone
@@ -94,18 +95,30 @@ def _series_to_monthly(raw, name):
     return s
 
 
+def _fetch_one(name, series_id):
+    return name, _series_to_monthly(get_fred_data(series_id, limit=1000), name)
+
+
 def _fetch_raw_monthly_frame():
     """Fetch + align all source series, and engineer the model's features.
 
     limit=1000 (~83 years) grabs each series' full history in one call --
     same "just ask for plenty" pattern the app's existing /api/sahm
     (limit=800) and /api/mortgage (limit=600) routes already use.
+
+    The 7 series are fetched in parallel via ThreadPoolExecutor -- the
+    same fix app.py's /api/all already applies for the same reason
+    (these are blocking network calls, not CPU work, so the waits can
+    overlap). This isn't just an optimization here: predict_current()
+    calls this function fresh on every request (by design -- see its
+    docstring), so a sequential 7-call fetch was slow enough on every
+    single request, not just the first cold one, to occasionally exceed
+    gunicorn's worker timeout and truncate the response mid-stream.
     """
-    frames = [
-        _series_to_monthly(get_fred_data(series_id, limit=1000), name)
-        for name, series_id in FRED_SERIES.items()
-    ]
-    df = pd.concat(frames, axis=1).sort_index()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = executor.map(_fetch_one, FRED_SERIES.keys(), FRED_SERIES.values())
+    frames = dict(results)
+    df = pd.concat([frames[name] for name in FRED_SERIES], axis=1).sort_index()
 
     df["yield_spread"] = df["yield_long"] - df["yield_short"]
     df["unrate_chg_12m"] = df["unrate"] - df["unrate"].shift(12)
