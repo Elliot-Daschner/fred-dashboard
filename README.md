@@ -24,6 +24,8 @@ A two-page dashboard for U.S. macroeconomic indicators, pulled live from the Fed
 
 Python, Flask, and Jinja templates with Chart.js for the charts. No frontend build step and no database. Deployed on Render, served by gunicorn via a Procfile. pandas/numpy/scikit-learn power the recession probability model described below.
 
+**Render requires a `PYTHON_VERSION=3.13.3` environment variable set in its dashboard.** This isn't optional — see "A production crash worth documenting" below for why.
+
 `templates/base.html` holds the shared layout (head, nav, header) that both pages extend; shared CSS and JS live in `static/` and are loaded once from there rather than duplicated per page.
 
 ## How it works
@@ -62,6 +64,14 @@ Two things surfaced while building it that are worth naming rather than hiding:
 
 The model trains once, lazily, on first request, and is cached in memory for the process's lifetime — not on a timer and not on every request. The underlying FRED series update at most monthly, and with so few recession episodes to learn from, one more month of ordinary data barely moves the fit; a new fit only happens when the server process restarts.
 
+### A production crash worth documenting
+
+Shortly after the recession probability model shipped, `/api/recession-model` started segfaulting in production (`SIGSEGV`, gunicorn worker killed, empty response) — 100% reproducible on Render, and never once on a local machine. Several plausible-looking fixes were tried and each failed in the same way: moving pandas/numpy work off worker threads (a real fix for a real but different problem, kept), forcing a conservative OpenBLAS CPU baseline, explicit date-format parsing. Every fix "worked" locally and crashed identically in production.
+
+The actual cause: nothing in this project pinned a Python version, and Render's build log showed `Using Python version 3.14.3 (default)` — a Python release newer than numpy/pandas/scikit-learn's pinned versions had ever been built or tested against. The crash wasn't in any specific line of code; it was the first real numpy/pandas C-extension call hitting an ABI it wasn't compiled for, which is why the crash kept "moving" to whichever line was next every time the preceding one got patched.
+
+A `runtime.txt` (the Heroku convention) was tried first and silently ignored — Render doesn't read it. The actual fix is a `PYTHON_VERSION` environment variable set in Render's dashboard, pointing at the exact version (3.13.3) this project is developed and tested against. That setting lives only in Render's dashboard, not in git — see Known limitations.
+
 ## Known limitations
 
 Kept deliberately visible rather than papered over:
@@ -72,6 +82,7 @@ Kept deliberately visible rather than papered over:
 - **Correlation alignment is approximate**, as described above.
 - **Sahm Rule can lag by a month or two.** FRED marks the most recent observations as `.` until they're finalized; the client filters those out, so the Recession Watch verdict may reflect a slightly older month than the calendar-current one.
 - **Recession probability model is trained on a small number of historical recessions (single digits) with no held-out test set** — treat it as illustrative/educational, not a validated forecast.
+- **The required `PYTHON_VERSION=3.13.3` Render environment variable lives only in Render's dashboard, not in git.** If it's ever lost (service recreated, settings reset), Render silently falls back to its own default Python version, and the SIGSEGV crash described above can recur with no code change at all.
 - **No automated tests.**
 
 ## Running locally
